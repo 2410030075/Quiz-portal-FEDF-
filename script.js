@@ -5,8 +5,8 @@ document.addEventListener("DOMContentLoaded", function () {
     let currentQuestionIndex = 0;
     let userAnswers = {};
     let quizStarted = false;
-    const quizPassword = "123"; // Default password for the quiz
-    const authorPassword = "123"; // New password for the author to show answers
+    const quizPassword = "1234boat"; // Default password for the quiz
+    const authorPassword = "boat4567"; // New password for the author to show answers
 
     // Timer setup - 3 hours
     let timeLeft = 1.5 * 60 * 60;  // 3 hours in seconds
@@ -216,7 +216,6 @@ document.addEventListener("DOMContentLoaded", function () {
     window.addEventListener("online", checkQuizViolation);
 
     function checkFlightMode() {
-        // Check if running on localhost/local server
         const isLocalhost = window.location.hostname === 'localhost' ||
             window.location.hostname === '127.0.0.1' ||
             window.location.hostname === '0.0.0.0';
@@ -226,7 +225,6 @@ document.addEventListener("DOMContentLoaded", function () {
         // For localhost, we'll simulate offline detection by checking external connectivity
         if (isLocalhost) {
             // For local development, we'll allow the quiz to proceed
-            // In production, you should remove this localhost check
             isOffline = true;
         }
 
@@ -756,6 +754,4 @@ document.addEventListener("DOMContentLoaded", function () {
     // Initialize the quiz - but don't start timer yet
     showQuestion(0);
     // updateTimer() is now only called when quiz actually starts
-
 });
-
