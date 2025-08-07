@@ -24,9 +24,9 @@ document.addEventListener("DOMContentLoaded", function () {
     // Subject configuration
     const subjects = [
         { name: "DBMS", color: "#FF6B6B", questions: 25 },
-        { name: "FEDF", color: "#4ECDC4", questions: 25 },
-        { name: "OOP", color: "#45B7D1", questions: 25 },
-        { name: "OS", color: "#96CEB4", questions: 25 }
+        { name: "FEDF", color: "#FF6B6B", questions: 25 },
+        { name: "OOP", color: "#FF6B6B", questions: 25 },
+        { name: "OS", color: "#FF6B6B", questions: 25 }
     ];
 
     // Correct answers
@@ -756,4 +756,5 @@ document.addEventListener("DOMContentLoaded", function () {
     // Initialize the quiz - but don't start timer yet
     showQuestion(0);
     // updateTimer() is now only called when quiz actually starts
+
 });
