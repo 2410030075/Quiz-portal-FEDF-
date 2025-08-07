@@ -5,8 +5,8 @@ document.addEventListener("DOMContentLoaded", function () {
     let currentQuestionIndex = 0;
     let userAnswers = {};
     let quizStarted = false;
-    const quizPassword = "1234boat"; // Default password for the quiz
-    const authorPassword = "boat4567"; // New password for the author to show answers
+    const quizPassword = "123"; // Default password for the quiz
+    const authorPassword = "123"; // New password for the author to show answers
 
     // Timer setup - 3 hours
     let timeLeft = 1.5 * 60 * 60;  // 3 hours in seconds
@@ -758,3 +758,4 @@ document.addEventListener("DOMContentLoaded", function () {
     // updateTimer() is now only called when quiz actually starts
 
 });
+
