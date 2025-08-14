@@ -6,7 +6,7 @@ document.addEventListener("DOMContentLoaded", function () {
     let userAnswers = {};
     let quizStarted = false;
     const quizPassword = "123"; // Default password for the quiz
-    const authorPassword = "boat4567"; // New password for the author to show answers
+    const authorPassword = "456"; // New password for the author to show answers
 
     // Timer setup - 3 hours
     let timeLeft = 1.5 * 60 * 60;  // 3 hours in seconds
@@ -23,10 +23,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Subject configuration
     const subjects = [
-        { name: "DBMS", color: "#FF6B6B", questions: 25 },
-        { name: "FEDF", color: "#FF6B6B", questions: 25 },
-        { name: "OOP", color: "#FF6B6B", questions: 25 },
-        { name: "OS", color: "#FF6B6B", questions: 25 }
+        { name: "DBMS", color: "#000000ff", questions: 25 },
+        { name: "FEDF", color: "#000000ff", questions: 25 },
+        { name: "OOP", color: "#000000ff", questions: 25 },
+        { name: "OS", color: "#000000ff", questions: 25 }
     ];
 
     // Correct answers
@@ -755,3 +755,4 @@ document.addEventListener("DOMContentLoaded", function () {
     showQuestion(0);
     // updateTimer() is now only called when quiz actually starts
 });
+
