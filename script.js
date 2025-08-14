@@ -5,7 +5,7 @@ document.addEventListener("DOMContentLoaded", function () {
     let currentQuestionIndex = 0;
     let userAnswers = {};
     let quizStarted = false;
-    const quizPassword = "1234boat"; // Default password for the quiz
+    const quizPassword = "123"; // Default password for the quiz
     const authorPassword = "boat4567"; // New password for the author to show answers
 
     // Timer setup - 3 hours
@@ -309,7 +309,7 @@ document.addEventListener("DOMContentLoaded", function () {
             gap: 5px;
             margin-bottom: 15px;
             padding: 8px;
-            background-color: #ff00fbc0;
+            background-color: #E8E8E8;
             border-radius: 5px;
             border: 2px solid black;
             overflow-y: auto;
@@ -672,7 +672,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 // Highlight user's incorrect answer if applicable
                 const userAnswer = userAnswers[questionKey];
                 if (userAnswer && userAnswer !== correctAnswer && option.value === userAnswer) {
-                    optionLabel.style.color = '#f44336';
+                    optionLabel.style.color = '#ffffffff';
                     optionLabel.style.fontWeight = 'bold';
                 }
             });
