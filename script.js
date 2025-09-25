@@ -15,11 +15,14 @@ document.addEventListener("DOMContentLoaded", function () {
     // Navigation buttons
     const prevBtn = document.getElementById("prevBtn");
     const nextBtn = document.getElementById("nextBtn");
+    const markBtn = document.getElementById("markBtn");
     const submitBtn = document.getElementById("submitBtn");
     const resultDiv = document.getElementById("result");
 
     // Question navigation panel
     const rightBox = document.querySelector(".right.box");
+    // Track questions marked for review
+    const markedForReview = new Set();
 
     // Subject configuration
     const subjects = [
@@ -181,8 +184,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 <p>Enter Quiz Password:</p>
                 <input type="password" id="quiz-password" placeholder="Enter password">
                 <p id="password-feedback" style="color: red; display: none;">Incorrect password!</p>
+                <button id="startQuizBtn" disabled>Start Quiz</button>
             </div>
-            <button id="startQuizBtn" disabled>Start Quiz</button>
             <p id="flightmode-instruction">${isMobileDevice() ? 'Please enable flight/airplane mode on your device, then click below to confirm' : 'Please disconnect from internet, then click below to confirm'}</p>
             <button id="checkFlightModeBtn">${isMobileDevice() ? "I've Enabled Flight Mode" : "I've Disconnected Internet"}</button>
         </div>
@@ -192,12 +195,23 @@ document.addEventListener("DOMContentLoaded", function () {
     document.body.insertBefore(prerequisiteDiv, quizContainer);
     quizContainer.style.display = "none";
     document.querySelector(".heading").style.display = "none";
+    
+    // Run the connectivity check immediately on page load
+    setTimeout(checkFlightMode, 500);
 
     // Check flight mode button
     document.getElementById("checkFlightModeBtn").addEventListener("click", checkFlightMode);
 
     // Start quiz button
     document.getElementById("startQuizBtn").addEventListener("click", function () {
+        // First check if we're really offline before proceeding (robust check)
+        checkRealConnectivity((isOnline) => {
+            if (isOnline) {
+                alert("Please disconnect from the internet before starting the quiz.");
+                checkFlightMode(); // Re-check connectivity
+                return;
+            }
+
         const passwordInput = document.getElementById("quiz-password");
         if (passwordInput.value === quizPassword) {
             prerequisiteDiv.style.display = "none";
@@ -205,76 +219,152 @@ document.addEventListener("DOMContentLoaded", function () {
             document.querySelector(".heading").style.display = "flex";
             quizStarted = true;
             updateTimer(); // Start the timer only when quiz starts
+            
+            // Set up periodic internet connection checks - every 5 seconds
+            const connectionCheckInterval = setInterval(function() {
+                if (!quizStarted) {
+                    clearInterval(connectionCheckInterval);
+                    return;
+                }
+                // Robust check during quiz as well
+                checkRealConnectivity((isOnlineNow) => {
+                    if (isOnlineNow) {
+                        // Auto-submit quiz due to violation
+                        submitQuiz(true);
+                        clearInterval(connectionCheckInterval);
+                    }
+                }, 2000);
+            }, 5000); // Check every 5 seconds
         } else {
             const passwordFeedback = document.getElementById("password-feedback");
             passwordFeedback.style.display = "block";
             passwordInput.value = "";
         }
+        });
     });
 
     // Network status detection
     window.addEventListener("online", checkQuizViolation);
 
-    function checkFlightMode() {
-        const isLocalhost = window.location.hostname === 'localhost' ||
-            window.location.hostname === '127.0.0.1' ||
-            window.location.hostname === '0.0.0.0';
-
-        let isOffline = !navigator.onLine;
-
-        // For localhost, we'll simulate offline detection by checking external connectivity
-        if (isLocalhost) {
-            // For local development, we'll allow the quiz to proceed
-            isOffline = true;
+    // Robust internet connectivity check
+    // Online only if: navigator says online AND at least one external probe succeeds
+    function checkRealConnectivity(callback, timeoutMs = 3000) {
+        // Fast path: if navigator reports offline, we are offline
+        if (!navigator.onLine) {
+            callback(false, { navigatorOnline: false, probes: [] });
+            return;
         }
 
-        const flightmodeCheck = document.getElementById("flightmode-check");
-
-        if (isOffline) {
-            flightmodeCheck.innerHTML = `✓ ${isMobileDevice() ? 'Device is in flight/airplane mode' : 'Internet disconnected successfully'}`;
-            flightmodeCheck.style.color = "green";
-
-            // Show password section when flight mode is enabled
-            document.getElementById("password-section").style.display = "block";
-        } else {
-            flightmodeCheck.innerHTML = `✗ ${isMobileDevice() ? 'Device must be in flight/airplane mode' : 'Please disconnect from internet (Wi-Fi/Ethernet)'}`;
-            flightmodeCheck.style.color = "red";
+        // Helper: load an image and resolve true on success
+        function loadImage(url, timeout) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                let settled = false;
+                const timer = setTimeout(() => {
+                    if (!settled) {
+                        settled = true;
+                        img.src = '';
+                        resolve(false);
+                    }
+                }, timeout);
+                img.onload = () => {
+                    if (!settled) {
+                        settled = true;
+                        clearTimeout(timer);
+                        resolve(true);
+                    }
+                };
+                img.onerror = () => {
+                    if (!settled) {
+                        settled = true;
+                        clearTimeout(timer);
+                        resolve(false);
+                    }
+                };
+                img.src = `${url}${url.includes('?') ? '&' : '?'}_=${Date.now()}`;
+            });
         }
 
-        updateStartButton();
+        // Helper: fetch probe (no-cors), resolve true on network success
+        function fetchProbe(url, timeout) {
+            return new Promise((resolve) => {
+                const controller = new AbortController();
+                const timer = setTimeout(() => {
+                    controller.abort();
+                    resolve(false);
+                }, timeout);
+                fetch(`${url}${url.includes('?') ? '&' : '?'}_=${Date.now()}`, { mode: 'no-cors', cache: 'no-store', signal: controller.signal })
+                    .then(() => {
+                        clearTimeout(timer);
+                        resolve(true);
+                    })
+                    .catch(() => {
+                        clearTimeout(timer);
+                        resolve(false);
+                    });
+            });
+        }
+
+        // Run multiple probes in parallel; consider online if any succeed
+        const probeList = [
+            { name: 'google_favicon', p: loadImage('https://www.google.com/favicon.ico', timeoutMs) },
+            { name: 'cloudflare_favicon', p: loadImage('https://www.cloudflare.com/favicon.ico', timeoutMs) },
+            { name: 'cloudflare_trace', p: fetchProbe('https://www.cloudflare.com/cdn-cgi/trace', timeoutMs) },
+            { name: 'msft_connecttest', p: fetchProbe('https://www.msftconnecttest.com/connecttest.txt', timeoutMs) }
+        ];
+
+        Promise.allSettled(probeList.map(x => x.p)).then(results => {
+            const details = {
+                navigatorOnline: true,
+                probes: results.map((r, i) => ({ name: probeList[i].name, success: r.status === 'fulfilled' && r.value === true }))
+            };
+            // Consider online only if 2 or more probes succeed
+            const successCount = details.probes.filter(p => p.success).length;
+            callback(successCount >= 2, details);
+        }).catch(() => callback(false, { navigatorOnline: true, probes: [] }));
     }
 
-    function updateStartButton() {
-        const startBtn = document.getElementById("startQuizBtn");
+    function checkFlightMode() {
+        const flightmodeCheck = document.getElementById("flightmode-check");
         const passwordSection = document.getElementById("password-section");
+        const startBtn = document.getElementById("startQuizBtn");
+        
+        // Set UI to checking state
+        flightmodeCheck.innerHTML = `⟳ ${isMobileDevice() ? 'Checking flight mode status...' : 'Checking internet connection...'}`;
+        flightmodeCheck.style.color = "#f39c12"; // orange for checking
 
-        // Check if running on localhost/local server
-        const isLocalhost = window.location.hostname === 'localhost' ||
-            window.location.hostname === '127.0.0.1' ||
-            window.location.hostname === '0.0.0.0';
+        // Use robust connectivity check and show diagnostics
+        checkRealConnectivity(function(isOnline, details) {
+            const isOffline = !isOnline;
 
-        let isOffline = !navigator.onLine;
+            if (isOffline) {
+                flightmodeCheck.innerHTML = `✓ ${isMobileDevice() ? 'Device is in flight/airplane mode' : 'Internet disconnected successfully'}`;
+                flightmodeCheck.style.color = "green";
 
-        // For localhost, allow the quiz to proceed
-        if (isLocalhost) {
-            isOffline = true;
-        }
+                // Show password section when flight mode is enabled
+                passwordSection.style.display = "block";
 
-        if (isOffline) {
-            passwordSection.style.display = "block";
-            startBtn.disabled = false;
-        } else {
-            passwordSection.style.display = "none";
-            startBtn.disabled = true;
-        }
+                // Enable start button
+                startBtn.disabled = false;
+            } else {
+                flightmodeCheck.innerHTML = `✗ ${isMobileDevice() ? 'Device must be in flight/airplane mode' : 'Please disconnect from internet (Wi-Fi/Ethernet)'}`;
+                flightmodeCheck.style.color = "red";
+
+                // Hide password section if online
+                passwordSection.style.display = "none";
+
+                // Disable start button
+                startBtn.disabled = true;
+            }
+
+            // (diagnostics removed)
+        });
     }
 
     function checkQuizViolation() {
-        if (quizStarted) {
-            if (navigator.onLine) {
-                // Auto-submit quiz due to violation
-                submitQuiz(true);
-            }
+        if (quizStarted && navigator.onLine) {
+            // Auto-submit quiz due to violation
+            submitQuiz(true);
         }
     }
 
@@ -465,6 +555,31 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     `;
     document.head.appendChild(subjectStyles);
+    // Add minimal styles for marked state indicator on grid buttons
+    const markStyles = document.createElement("style");
+    markStyles.textContent = `
+        .right.box .btn.subject-btn.marked {
+            position: relative;
+            box-shadow: 0 0 0 2px #5f73b6d6 inset !important;
+        }
+        .right.box .btn.subject-btn.marked::after {
+            content: '\u25CF';
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            width: 14px;
+            height: 14px;
+            background: #ff0000ff;
+            color: #fff;
+            border-radius: 50%;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #fff;
+        }
+    `;
+    document.head.appendChild(markStyles);
 
     // Track answer changes
     document.querySelectorAll('input[type="radio"]').forEach(radio => {
@@ -529,6 +644,12 @@ document.addEventListener("DOMContentLoaded", function () {
         });
 
         currentQuestionIndex = index;
+        // Sync Mark button state for current question
+        if (markBtn) {
+            const qKey = `q${currentQuestionIndex + 1}`;
+            const isMarked = markedForReview.has(qKey);
+            markBtn.textContent = isMarked ? "Unmark" : "Mark for Review";
+        }
     }
 
     // Initialize timer
@@ -566,10 +687,23 @@ document.addEventListener("DOMContentLoaded", function () {
         const timeExpired = timeLeft <= 0;
         resultDiv.innerHTML = `
             <h2>Quiz Results</h2>
-            <p>Your Score: ${score}/${totalQuestions}</p>
-            <p>Questions Answered: ${answeredCount}/${totalQuestions}</p>
-            ${timeExpired ? '<p>Time Expired!</p>' : ''}
-            ${violation ? '<p>Quiz rules violated! Quiz auto-submitted.</p>' : ''}
+            <div class="result-content">
+                <div class="score-summary">
+                    <p>Your Score: ${score}/${totalQuestions}</p>
+                    <p>Questions Answered: ${answeredCount}/${totalQuestions}</p>
+                    <p>Accuracy: ${answeredCount > 0 ? Math.round((score / answeredCount) * 100) : 0}%</p>
+                    ${timeExpired ? '<p class="time-expired">Time Expired!</p>' : ''}
+                    ${violation ? '<p class="violation-warning">Quiz rules violated! Quiz auto-submitted.</p>' : ''}
+                </div>
+                <div class="progress-chart-container">
+                    <h3>Your Progress</h3>
+                    <canvas id="progressChart" width="400" height="200"></canvas>
+                </div>
+                <div class="subject-breakdown">
+                    <h3>Subject-wise Performance</h3>
+                    <div id="subjectStats"></div>
+                </div>
+            </div>
             <p>You can now navigate through the questions to see the correct answers.</p>
             <div id="author-controls" style="margin-top: 20px; padding: 10px; border: 1px dashed #ccc; background-color: #f9f9f9;">
                 <p><strong>Author Controls:</strong></p>
@@ -580,6 +714,12 @@ document.addEventListener("DOMContentLoaded", function () {
         `;
 
         resultDiv.style.display = "block";
+
+        // Create progress chart
+        createProgressChart(score, totalQuestions, answeredCount);
+        
+        // Create subject-wise breakdown
+        createSubjectBreakdown(score, answeredCount);
 
         // Set up the toggle answers button
         document.getElementById("toggle-answers-btn").addEventListener("click", function () {
@@ -672,7 +812,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 // Highlight user's incorrect answer if applicable
                 const userAnswer = userAnswers[questionKey];
                 if (userAnswer && userAnswer !== correctAnswer && option.value === userAnswer) {
-                    optionLabel.style.color = '#ffffffff';
+                    optionLabel.style.color = '#ff0000ff';
                     optionLabel.style.fontWeight = 'bold';
                 }
             });
@@ -736,6 +876,114 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
+    // Create progress chart
+    function createProgressChart(score, totalQuestions, answeredCount) {
+        const ctx = document.getElementById('progressChart').getContext('2d');
+        
+        // Calculate percentages
+        const scorePercentage = Math.round((score / totalQuestions) * 100);
+        const answeredPercentage = Math.round((answeredCount / totalQuestions) * 100);
+        const unansweredPercentage = 100 - answeredPercentage;
+        
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Correct Answers', 'Incorrect Answers', 'Unanswered'],
+                datasets: [{
+                    data: [
+                        score,
+                        answeredCount - score,
+                        totalQuestions - answeredCount
+                    ],
+                    backgroundColor: [
+                        '#4CAF50', // Green for correct
+                        '#f44336', // Red for incorrect
+                        '#9E9E9E'  // Grey for unanswered
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            usePointStyle: true
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label;
+                                const value = context.parsed;
+                                const percentage = Math.round((value / totalQuestions) * 100);
+                                return `${label}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    }
+                },
+                cutout: '60%'
+            }
+        });
+    }
+
+    // Create subject-wise breakdown
+    function createSubjectBreakdown(totalScore, totalAnswered) {
+        const subjectStatsDiv = document.getElementById('subjectStats');
+        let subjectHTML = '';
+        
+        subjects.forEach((subject, index) => {
+            const startQ = index * 25 + 1;
+            const endQ = (index + 1) * 25;
+            
+            let subjectScore = 0;
+            let subjectAnswered = 0;
+            
+            // Calculate subject-wise score
+            for (let i = startQ; i <= endQ; i++) {
+                const questionKey = `q${i}`;
+                if (userAnswers[questionKey]) {
+                    subjectAnswered++;
+                    if (userAnswers[questionKey] === correctAnswers[questionKey]) {
+                        subjectScore++;
+                    }
+                }
+            }
+            
+            const accuracy = subjectAnswered > 0 ? Math.round((subjectScore / subjectAnswered) * 100) : 0;
+            const completion = Math.round((subjectAnswered / 25) * 100);
+            
+            subjectHTML += `
+                <div class="subject-stat">
+                    <div class="subject-header">
+                        <span class="subject-name" style="color: ${subject.color}">${subject.name}</span>
+                        <span class="subject-score">${subjectScore}/25</span>
+                    </div>
+                    <div class="progress-bars">
+                        <div class="progress-bar-container">
+                            <div class="progress-label">Accuracy: ${accuracy}%</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill accuracy" style="width: ${accuracy}%"></div>
+                            </div>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div class="progress-label">Completion: ${completion}%</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill completion" style="width: ${completion}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        subjectStatsDiv.innerHTML = subjectHTML;
+    }
+
     // Event listeners
     prevBtn.addEventListener("click", function () {
         if (currentQuestionIndex > 0) {
@@ -750,6 +998,25 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     submitBtn.addEventListener("click", function () { submitQuiz(false); });
+
+    // Mark for Review toggle
+    if (markBtn) {
+        markBtn.addEventListener("click", function () {
+            const qKey = `q${currentQuestionIndex + 1}`;
+            if (markedForReview.has(qKey)) {
+                markedForReview.delete(qKey);
+                this.textContent = "Mark for Review";
+            } else {
+                markedForReview.add(qKey);
+                this.textContent = "Unmark";
+            }
+            // Update the corresponding right-panel button visual state
+            const btn = document.querySelectorAll('.right.box .btn.subject-btn')[currentQuestionIndex];
+            if (btn) {
+                btn.classList.toggle('marked', markedForReview.has(qKey));
+            }
+        });
+    }
 
     // Initialize the quiz - but don't start timer yet
     showQuestion(0);
