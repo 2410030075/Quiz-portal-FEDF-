@@ -182,6 +182,16 @@ button:hover {
     transform: scale(1.05);
 }
 
+/* Keep a distinct accent when toggled to Unmark state (handled inline via text change) */
+#markBtn {
+    background-color: #ee9104;
+    
+}
+
+#markBtn:hover {
+    background-color: #fb8c00;
+}
+
 button:disabled {
     background-color: #95a5a6;
     cursor: not-allowed;
@@ -205,6 +215,156 @@ button:disabled {
     border-radius: 8px;
     background-color: #f1c40f;
     display: none;
+    max-width: 1000px;
+    margin: 20px auto;
+}
+
+/* Result content styling */
+.result-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    margin: 20px 0;
+    text-align: left;
+}
+
+.score-summary {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.score-summary p {
+    margin: 10px 0;
+    font-size: 16px;
+}
+
+.time-expired {
+    color: #e74c3c !important;
+    font-weight: bold;
+}
+
+.violation-warning {
+    color: #e74c3c !important;
+    font-weight: bold;
+}
+
+/* Progress chart container */
+.progress-chart-container {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    text-align: center;
+}
+
+.progress-chart-container h3 {
+    margin-top: 0;
+    color: #2c3e50;
+}
+
+#progressChart {
+    max-height: 250px;
+}
+
+/* Subject breakdown styling */
+.subject-breakdown {
+    grid-column: 1 / -1;
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.subject-breakdown h3 {
+    margin-top: 0;
+    color: #2c3e50;
+    text-align: center;
+}
+
+.subject-stat {
+    margin: 15px 0;
+    padding: 15px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+}
+
+.subject-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.subject-name {
+    font-weight: bold;
+    font-size: 18px;
+}
+
+.subject-score {
+    font-weight: bold;
+    font-size: 16px;
+    color: #2c3e50;
+}
+
+.progress-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.progress-bar-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.progress-label {
+    min-width: 100px;
+    font-size: 14px;
+    color: #666;
+}
+
+.progress-bar {
+    flex: 1;
+    height: 20px;
+    background-color: #e0e0e0;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    transition: width 0.5s ease-in-out;
+    border-radius: 10px;
+}
+
+.progress-fill.accuracy {
+    background: linear-gradient(90deg, #4CAF50, #8BC34A);
+}
+
+.progress-fill.completion {
+    background: linear-gradient(90deg, #2196F3, #03A9F4);
+}
+
+/* Responsive design for result section */
+@media (max-width: 768px) {
+    .result-content {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .progress-bar-container {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+    
+    .progress-label {
+        min-width: auto;
+    }
 }
 
 .right.box .btn {
